@@ -69,6 +69,11 @@
 
   //分析資料
   function alz(){
+    var data = {};
+    socket.emit('alz',data);
+  }
+  
+  /*
     $.ajax({
       type:"POST",
       url:"./alz.php",
@@ -85,9 +90,8 @@
       error:function(data){
         alert("無新增、更新資料");
       },
-    });
-  }
-
+    });*/
+  
   //第一次執行，搜尋當天資料
   function qry(){
     

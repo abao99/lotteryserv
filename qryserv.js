@@ -2,6 +2,7 @@ var http =  require('http');
 var io = require('socket.io'); // 加入 Socket.IO
 var querystring = require('querystring');
 
+
 //建立伺服器
 var server = http.createServer(function(request, response) {
   console.log('Connection listen*8001');
@@ -12,7 +13,7 @@ server.listen(8001);  //指定port
 var mysql = require('mysql');
 var con = mysql.createConnection({
   host     : 'localhost',
-  user     : 'admin',
+  user     : 'root',
   password : '123456',
   database : 'lottery'
 });
@@ -34,8 +35,107 @@ serv_io.on('connection',function(socket){
       console.log(result.dateStart);
       Submit(result,socket);
     });
+    
+    socket.on('alz',function(data){
+      alz(data,socket);
+    });
   
 });    
+
+function alz(data,socket){
+  
+  var request = require('request');
+  var url = "http://www.kufa88.com/Promotion/jingcai"; 
+  
+  request(url, function (error, response, body) {
+    if (!error && response.statusCode == 200) {
+      //console.log(body) // 打印網頁資訊
+    catech(body);
+    } 
+  }) 
+}
+
+function catech(body){
+  var fs = require('fs');
+  var cheerio = require("cheerio");
+  $ = cheerio.load(body);
+  var output = [];
+  
+      //抓日期
+      var date = [];
+      var resultdate = [];
+      $('tbody .expanded td').each(function(i, elem){
+          date.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < date.length; i++){
+        
+        resultdate[i]= date[i][0].substring(0,10);
+      }
+      //console.log(date[0][0])
+      // output[i] = date[i][0].substring(0,10);output[i] 日期
+      
+      //抓賽事
+      var race = [];
+      var resultrace =[];
+      $('tbody .more1 td .leagueName').each(function(i, elem){
+            race.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < race.length; i++){
+        resultrace[i]= race[i][0];
+      }
+      //抓主隊
+      var host = [];
+      var resulthost =[];
+      $('tbody .more1 .name .vs .ht').each(function(i, elem){
+            host.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < host.length; i++){
+        resulthost[i]= host[i][0];
+      }
+      //抓客隊
+      var visite = [];
+      var resultvisite =[];
+      $('tbody .more1 .name .vs .at').each(function(i, elem){
+            visite.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < visite.length; i++){
+        resultvisite[i]= visite[i][0];
+      }
+      //抓時間
+      var time = [];
+      var resulttime =[];
+      $('tbody .more1 .time').each(function(i, elem){
+            time.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < time.length; i++){
+        resulttime[i]= time[i][0];
+      }
+      //抓讓球.盤口
+      var concede = [];
+      var resultconcede =[];
+      $('tbody .more1 td .rq2').each(function(i, elem){
+            concede.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < concede.length; i++){
+        resultconcede[i]= concede[i][0];
+      }
+      //抓人數
+      var num = [];
+      var resultnum = [];
+      $('tbody .more1 .num').each(function(i, elem){
+            num.push($(this).text().split('\n'));
+        });
+      for(var i =0 ; i < num.length; i++){
+        resultnum[i]= num[i][0].substring(0,num.length-3);
+      }
+      //抓勝.平.負
+      var result=[];
+      $('tbody .more1 .odds span').each(function(i, elem){
+            result.push($(this).text().split('\n'));
+            console.log(result);    
+        });
+      
+}
 
 function Submit(search,socket){
   console.log(search.dateStart);
