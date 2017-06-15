@@ -13,7 +13,7 @@ server.listen(8001);  //指定port
 var mysql = require('mysql');
 var con = mysql.createConnection({
   host     : 'localhost',
-  user     : 'root',
+  user     : 'admin',
   password : '123456',
   database : 'lottery'
 });
@@ -64,24 +64,142 @@ function catech(body){
   var resuldate = [];
   var date = [];
   regex = /<td colspan="6"><span class="moreIcon"><\/span>(.*?) 每次竞猜选择一个选项下注/g;
+  console.log(regex);
   while(date = regex.exec(tbody[1])){
     
-    resuldate.push(date[1]);//resul 日期
+    resuldate.push(date[1]);//date 日期
   } 
-  console.log(resul[0]);
+  console.log(resuldate[0]);
   
   //抓一天賽事
   var resulday = [];
-  var day = [];
-  for(var i=0; i<=resul.length ; i++) {
-    regex = new RegExp('/<tr class="moreContent more'+i+'" style="display: table-row">(.*?)<\/tr>/',"g");
-    regex = /<tr class="moreContent more1" style="display: table-row">(.*?)<\/tr>/g;
-    while(day = regex.exec(tbody[1]) ){
-      resulday.push(day[1]);
+  var tr = [];
+  var moreindex ;
+  for(var i=0; i<resuldate.length ; i++) {
+    moreindex = i+1;
+    regex = new RegExp('<tr class="moreContent more'+moreindex+'" style="display: table-row">(.*?)<\/tr>','g');
+    //<tr class="moreContent 
+    //regex = /<tr class="moreContent more1" style="display: table-row">(.*?)<\/tr>/g;
+    console.log(regex);
+    while(tr = regex.exec(tbody[1]) ){
+      //console.log(tr[1]);
+      resulday.push(tr[1]);
+    } 
+    
+    for(var j =0 ;j<resulday.length;j++ ){
+      //console.log(resulday.length);
+      //賽事
+      var resulrace = [];
+      var race = [];
+      var race1 = [];
+      var regex1 =/color: #FFFFFF\'>(.*?)<\/span><\/td>/g;
+      regex = /color: #ffffff\'>(.*?)<\/span><\/td>/g;
+      while(race1 = regex1.exec(resulday[j])){
+        console.log(race1[1].length);
+        
+        if(regex1.exec(resulday[j]) != null){
+          console.log(race1[1]);
+          resulrace.push(race1[1]);
+        }
+        else{
+          //console.log(regex.exec(resulday[j]));
+          race = regex.exec(resulday[j]);
+          //console.log(race[1]);
+          //resulrace.push(race[1]);
+        }
+      } 
+      //console.log(resulrace[0]);
+    
+      //抓主隊
+      var resulhost = [];
+      var host = [];
+      regex = /<span class="ht">(.*)<\/span>vs/g;
+      //console.log(regex);
+      while(host = regex.exec(resulday[j])){
+        
+        resulhost.push(host[1]);//date 日期
+      } 
+      //console.log(resulhost[0]);
+
+      //抓客隊
+      var resulvisite = [];
+      var visite = [];
+      regex = /<span class="at">(.*?)<\/span>/g;
+      //console.log(regex);
+      while(visite = regex.exec(resulday[j])){
+        
+        resulvisite.push(visite[1]);//date 日期
+      } 
+      //console.log(resulvisite[0]);
+
+      //抓時間
+      var resultime = [];
+      var time = [];
+      regex = /<td class="time">(.*?)<\/td>/g;
+      //console.log(regex);
+      while(time = regex.exec(resulday[j])){
+        
+        resultime.push(time[1]);//date 日期
+      } 
+      //console.log(resultime[0]);
+
+      //抓讓球
+      var resulconcede = [];
+      var concede = [];
+      regex = /<span class="rq2".*?>(.*?)<\/span>/g;
+      //console.log(regex);
+      while(concede = regex.exec(resulday[j])){
+        
+        resulconcede.push(concede[1]);//date 日期
+      } 
+      //console.log(resulconcede[0]);
+
+      //抓人數
+      var resulnum = [];
+      var num = [];
+      regex = /<td class="num">(.*?)人竞猜<\/td>/g;
+      //console.log(regex);
+      while(num = regex.exec(resulday[j])){
+        
+        resulnum.push(num[1]);//date 日期
+      } 
+      // console.log(resulnum[0]);
+
+      //抓勝
+      var resulvictory = [];
+      var victory = [];
+      regex = /<span>胜(.*?)<input/g;
+      //console.log(regex);
+      while(victory = regex.exec(resulday[j])){
+        
+        resulvictory.push(victory[1]);//victory[1] victory[2]
+      } 
+      //console.log(resulvictory[1]);
+
+      //抓平
+      var resuldraw = [];
+      var draw = [];
+      regex = /<span>平 (.*?)<input/g;
+      //console.log(regex);
+      while(draw = regex.exec(resulday[j])){
+        
+        resuldraw.push(draw[1]);//draw[1] draw[2]
+      } 
+      //console.log(resuldraw[1]);
+
+      //抓負
+      var resuldefeat = [];
+      var defeat = [];
+      regex = /<span>平 (.*?)<input/g;
+      //console.log(regex);
+      while(defeat = regex.exec(resulday[j])){
+        
+        resuldefeat.push(defeat[1]);//defeat[1] defeat[2]
+      } 
+      //console.log(resuldefeat[1]);
     }
-   
-    $data[$date[1][$i-1]] = game($day,$i,$date,$link);	//抓資料存資料庫	tbodydata: 原始要分析的html資料 , $d: 第幾天 , $date:日期資料 ,$link:連線資料
   }
+  
       
 }
 
