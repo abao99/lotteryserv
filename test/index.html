@@ -71,26 +71,10 @@
   function alz(){
     var data = {};
     socket.emit('alz',data);
+    socket.on('alzresult',function(data){
+      showval(data);
+    });
   }
-  
-  /*
-    $.ajax({
-      type:"POST",
-      url:"./alz.php",
-      dataType:"json",
-      success:function(data){
-        showval(data);
-      },
-      beforeSend:function(){
-        $('#loadingIMG').show();
-      },
-      complete:function(){
-        $('#loadingIMG').hide();
-      },
-      error:function(data){
-        alert("無新增、更新資料");
-      },
-    });*/
   
   //第一次執行，搜尋當天資料
   function qry(){
@@ -112,26 +96,6 @@
       showval(data);
     });
   }
-
-  /*
-    $.ajax({
-      type:"POST",
-      url:"./qry.php",
-      data: $('#search').serialize(),  //id = search : 搜尋表單，送出搜尋條件 serialize():序列化表單
-      dataType:"json",
-      success:function(data){
-        showval(data);
-      },
-      beforeSend:function(){
-        $('#loadingIMG').show();
-      },
-      complete:function(){
-        $('#loadingIMG').hide();
-      },
-      error:function(data){
-        alert("請輸入條件");
-      },
-    });*/
 
   //顯示資料
   function showval(data){   //data: json資料

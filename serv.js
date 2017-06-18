@@ -13,7 +13,7 @@ server.listen(8001);  //指定port
 var mysql = require('mysql');
 var con = mysql.createConnection({
   host     : 'localhost',
-  user     : 'root',
+  user     : 'admin',
   password : '123456',
   database : 'lottery'
 });
@@ -45,9 +45,10 @@ serv_io.on('connection',function(socket){
 function alz(data,socket){
   
   var request = require('request');
-  var url = "http://localhost/source4.html"; 
+  var url = "http://www.kufa88.com/Promotion/jingcai"; 
   var resule = [];
   var alzcount = [];
+  var upalz = []; //紀錄更新資料的id & 新增幾筆資料
   
   request(url, function (error, response, body) {
     if (!error && response.statusCode == 200) {
@@ -61,21 +62,116 @@ function alz(data,socket){
       
       if(resule.length !=0){
         console.log("第一筆資料");
-        update(resule,0,function(alz){  //resule 抓到的資料 alz:紀錄更新或新增幾筆資料
-          //alzcount = alz;
+        var sql_insert = "INSERT INTO game (date, race, host, visite, time, concede, victory, victory1, draw, draw1, defeat, defeat1, num)"+ 
+                 "VALUES ";
+        var count =0;  // 新增幾筆資料
+        
+        update(resule,0,sql_insert,count,upalz,function(){  //resule 抓到的資料 alz:紀錄更新或新增幾筆資料
+          console.log(upalz);
+          console.log(upalz.length);
+          var row = [];
+          var rowresult={};
+           
+          
+          insertresult(upalz,row,function(){
+            console.log("insert:"+row);
+            
+            updateresult(upalz,row,function(){
+              console.log("upate:"+row);
+
+              for(i = 0; i <row.length ; i++){
+                rowresult[i] = row[i]; 
+              };
+              console.log("rowresult:"+rowresult);
+              socket.emit('alzresult',rowresult);
+            })
+              
+          });
+
         });
       }
     } 
   }) 
 }
 
-function update(resule,n,callback){
-  var sql_insert = "INSERT INTO game (date, race, host, visite, time, concede, victory, victory1, draw, draw1, defeat, defeat1, num)"+ 
-                 "VALUES ";
+function insertresult(upalz,row,callback){
+  
+  console.log("index"+index);
+  var index = upalz.length-1;
+  if(upalz[index]["insertNumber"]){
+    console.log(upalz[index]["insertNumber"]);
+    console.log("inIF");
+    var sql = "";
     
-  var flag = 0; //判斷資料有沒有新增
-  var count =0;  // 新增幾筆資料
-  var alz = []; //紀錄更新資料的id & 新增幾筆資料
+        sql = "SELECT "+
+                 "* "+ 
+              "FROM "+
+                 "game "+
+              "ORDER BY "+
+                 "id "+
+                 "DESC "+
+              "limit "+
+                  upalz[index]["insertNumber"]+";";
+
+    con.query(sql, function (err, result) {
+      console.log(sql);
+      console.log("inQuery");
+        if (err) throw err;
+       console.log(result); 
+      for(var i = 0; i <result.length ; i++){
+        console.log(result[i]["id"]);
+        result[i].alz="insert";
+        console.log(result[i]["id"]);
+        console.log(result[i]["alz"]);
+        row.push(result[i]); 
+      }
+      callback(row);
+    }); 
+  }
+  callback(row);
+}
+
+function updateresult(upalz,row,callback){
+  var index = upalz.length-1;
+  if(upalz[index]["insertNumber"]){
+    index--;
+  }
+  if(upalz[0]["updateId"]){
+    console.log("upIF");
+    var sql_update= "SELECT "+
+                      "* "+ 
+                    "FROM "+
+                      "game "+
+                    "where ";
+    
+    for(var i=0; i<=index;i++){          //哪幾筆資料有更新
+      if(i != index){
+        sql_update+=" id = "+upalz[i]["updateId"]+" or";
+      }
+      else{
+        sql_update +=" id = "+upalz[i]["updateId"]+" ";
+      }
+    }
+
+    sql_update+= " ORDER BY "+
+                    " date , time;";
+
+    con.query(sql_update, function (err, result) {
+      console.log("upQuery");
+      console.log(sql_update);
+        if (err) throw err;
+        
+      for(var i = 0; i <result.length ; i++){
+        result[i].alz="update";
+        row.push(result[i]); 
+      }
+      callback(row); 
+    });
+  }
+  callback(row);       
+}
+
+function update(resule,n,sql_insert,count,upalz,callback){
 
       var sql = "select "+      //查詢 判斷資料存不存在
                   "*"+ 
@@ -91,62 +187,69 @@ function update(resule,n,callback){
       
         if (row.length == 0){     //資料不存在，新增
           console.log("新增資料");
-          sql_insert += "('"+resule[n]["date"]+"' , "+ //sql 新增資料字串
-                         +"'"+resule[n]["race"]+"' , "+
-                         +"'"+resule[n]["host"]+"' , "+
-                         +"'"+resule[n]["visite"]+"' , "+
-                         +"'"+resule[n]["time"]+"' , "+
-                         +"'"+resule[n]["concede"]+"' , "+
-                         +"'"+resule[n]["victory"]+"' , "+
-                         +"'"+resule[n]["victory1"]+"' , "+
-                         +"'"+resule[n]["draw"]+"' , "+
-                         +"'"+resule[n]["draw1"]+"' , "+
-                         +"'"+resule[n]["defeat"]+"' , "+
-                         +"'"+resule[n]["defeat1"]+"' , "+
-                         +"'"+resule[n]["num"]+"'"+
-                         +") , ";
+          count++;
+          sql_insert += "('"+resule[n]["date"]+"' ,"//sql 新增資料字串
+                         +"'"+resule[n]["race"]+"' , "
+                         +"'"+resule[n]["host"]+"' , "
+                         +"'"+resule[n]["visite"]+"', "
+                         +"'"+resule[n]["time"]+"' , "
+                         +"'"+resule[n]["concede"]+"', "
+                         +"'"+resule[n]["victory"]+"' ,"
+                         +"'"+resule[n]["victory1"]+"' , "
+                         +"'"+resule[n]["draw"]+"' , "
+                         +"'"+resule[n]["draw1"]+"' , "
+                         +"'"+resule[n]["defeat"]+"' , "
+                         +"'"+resule[n]["defeat1"]+"' , "
+                         +"'"+resule[n]["num"]+"'"
+                         +") ,";
           if(n+1 < resule.length){ //還有資料
-            update(resule,n+1);    //處理下一筆
+            update(resule,n+1,sql_insert,count,upalz,function(){
+              callback(upalz);
+            });    //處理下一筆
           }
           else{
-            
-            sql_insert = sql_insert.substring(0,sql_insert.length -1); //刪掉,  
-            
+            console.log("else新增資料");
+            sql_insert = sql_insert.substring(0,sql_insert.length-1); //刪掉,  
+            //console.log(sql_insert);
+
             con.query(sql_insert, function (error, insertrow) {
               if (error) throw error;
               
-                console.log("新增幾筆資料"+count);
-                alz.push({"insertNumber":count});//記錄新增幾筆資料
-              
-              callback(alz);   //資料處理完
             }); //新增資料
+              console.log("新增幾筆資料"+count);
+              upalz.push({"insertNumber":count});//記錄新增幾筆資料
+            callback(upalz,count);   //資料處理完
           }   
         }        
         else{   //資料存在，更新
           
-          if(row["num"] != resule[n]["num"]){    //更新競猜人數
+          if(row[0]["num"] != resule[n]["num"]){    //更新競猜人數
+           
             var sql_update ="UPDATE "+ 
                               "game "+ 
                             "SET "+ 
                               "num='"+resule[n]['num']+" ' "+ 
                             "WHERE "+ 
-                            "id='"+row['id']+" ' "; 
+                            "id='"+row[0]['id']+" ' "; 
                
-          } 
+            upalz.push({"updateId":row[0]['id']});//紀錄更新資料的id
+            
             con.query(sql_update, function (error, updaterow) {   //更新資料
-             console.log("更新資料");
+             
               if (error) throw error;
+            });  
+          }    
+         
+          if(n+1 < resule.length){ //還有資料
+            update(resule,n+1,sql_insert,count,upalz,function(){
               
-              alz.push({"updateId":updaterow["id"]});//紀錄更新資料的id
-              
-              if(n+1 < resule.length){ //還有資料
-                update(resule,n+1); //處理下一筆
-              }
-              else{
-                callback(alz);   //資料處理完
-              }
-            });
-          
+              callback(upalz);
+            }); //處理下一筆
+          }
+          else{
+             
+            callback(upalz);   //資料處理完
+          }  
         }  
       });
   //return alz; //回傳更新資料的id & 新增幾筆資料
