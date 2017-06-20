@@ -13,7 +13,7 @@ server.listen(8001);  //指定port
 var mysql = require('mysql');
 var con = mysql.createConnection({
   host     : 'localhost',
-  user     : 'admin',
+  user     : 'root',
   password : '123456',
   database : 'lottery'
 });
@@ -28,26 +28,26 @@ var serv_io = io.listen(server);  // 開啟 Socket.IO 的 listener
 
 serv_io.on('connection',function(socket){
   
-    qry(socket);
+    qry(socket);  //第一次查詢
 
-    socket.on('submit',function(data){
+    socket.on('submit',function(data){      //接收查詢條件
       var result = querystring.parse(data);
       console.log(result.dateStart);
-      Submit(result,socket);
+      Submit(result,socket);     //查詢資料  result:查詢條件
     });
     
     socket.on('alz',function(data){
-      alz(data,socket);
+      alz(data,socket);   //分析資料
     });
   
 });    
 
+//分析資料
 function alz(data,socket){
   
   var request = require('request');
-  var url = "http://www.kufa88.com/Promotion/jingcai"; 
-  var resule = [];
-  var alzcount = [];
+  var url = "http://www.kufa88.com/Promotion/jingcai"; //http://www.kufa88.com/Promotion/jingcai http://localhost/source4.html
+  var resule = [];  //網頁抓到的資料
   var upalz = []; //紀錄更新資料的id & 新增幾筆資料
   
   request(url, function (error, response, body) {
@@ -55,122 +55,167 @@ function alz(data,socket){
       //console.log(body) // 打印網頁資訊
       body=body.replace(/\r\n|\n|\r/g,"");
       
-      resule = catech(body); //resule[第幾筆資料]["race"]
+      //resule[第幾筆資料]["race"] catech():抓網頁資料 body:要處理的網頁資訊
+      resule = catech(body); 
       //console.log(resule[39]["race"]);
       
-      //判斷更新或新增
+     
       
-      if(resule.length !=0){
+      if(resule.length !=0){  //有抓到資料
         console.log("第一筆資料");
         var sql_insert = "INSERT INTO game (date, race, host, visite, time, concede, victory, victory1, draw, draw1, defeat, defeat1, num)"+ 
                  "VALUES ";
         var count =0;  // 新增幾筆資料
         
-        update(resule,0,sql_insert,count,upalz,function(){  //resule 抓到的資料 alz:紀錄更新或新增幾筆資料
+        //update()更新和新增 resule:要處理的資料 sql_insert:查詢字串 count:有幾筆新增 upalz:紀錄更新或新增幾筆資料
+        update(resule,0,sql_insert,count,upalz,function(upalz,count,sql_insert){  
           console.log(upalz);
           console.log(upalz.length);
-          var row = [];
-          var rowresult={};
-           
+          var row = [];   //row:存查詢到資料
+          var rowresult={}; //rowresult:要顯示的資料
           
-          insertresult(upalz,row,function(){
-            console.log("insert:"+row);
-            
-            updateresult(upalz,row,function(){
-              console.log("upate:"+row);
+          if(count>0){  //有新增資料
+            console.log("新增幾筆資料"+count);
+            upalz.push({"insertNumber":count});//記錄新增幾筆資料
 
+            if(upalz[upalz.length-1]["insertNumber"]){
+              sql_insert = sql_insert.substring(0,sql_insert.length-1); //刪掉,  
+              //console.log(sql_insert);
+
+              con.query(sql_insert, function (error, insertrow) {
+                console.log(sql_insert);
+                console.log("新增資料");
+                if (error) throw error;
+                
+              }); //新增資料
+                
+            }
+          }
+            
+          console.log(upalz);
+          
+          //查詢新增哪幾筆資料 upalz:紀錄新增更新幾筆資料 row:存查詢到資料
+          insertresult(upalz,row,function(row,upalz){
+            console.log("insert:"+row);
+                
+            //查詢更新哪幾筆資料 upalz:紀錄新增更新幾筆資料 row:存查詢到資料
+            updateresult(upalz,row,function(row){
+              console.log("upate:"+row);
+              
+              //要顯示的資料存到rowresult
               for(i = 0; i <row.length ; i++){
                 rowresult[i] = row[i]; 
               };
-              console.log("rowresult:"+rowresult);
-              socket.emit('alzresult',rowresult);
-            })
               
+              console.log("rowresult:"+rowresult);
+              socket.emit('alzresult',rowresult);//傳回要顯示的解果
+            })
+                  
           });
-
-        });
+        });  
       }
     } 
   }) 
 }
 
+//查詢新增哪幾筆資料 upalz:紀錄新增更新幾筆資料 row:存查詢到資料
 function insertresult(upalz,row,callback){
-  
-  console.log("index"+index);
-  var index = upalz.length-1;
-  if(upalz[index]["insertNumber"]){
-    console.log(upalz[index]["insertNumber"]);
-    console.log("inIF");
-    var sql = "";
-    
-        sql = "SELECT "+
-                 "* "+ 
-              "FROM "+
-                 "game "+
-              "ORDER BY "+
-                 "id "+
-                 "DESC "+
-              "limit "+
-                  upalz[index]["insertNumber"]+";";
+  console.log("INSERTRESULT");
+  if(upalz.length > 0){     //upalz 有資料
+    var index = upalz.length-1; //upalz[index]["insertNumber"] 位址
 
-    con.query(sql, function (err, result) {
-      console.log(sql);
-      console.log("inQuery");
+    if(upalz[index]["insertNumber"]){   //有新增資料
+
+      console.log("inIF");
+      var sql = "";     //字串
+      
+          sql = "SELECT "+
+                   "* "+ 
+                "FROM "+
+                   "game "+
+                "ORDER BY "+
+                   "id "+
+                   "DESC "+
+                "limit "+
+                    upalz[index]["insertNumber"]+";";
+
+      con.query(sql, function (err, result) {
+        console.log("inQuery");
         if (err) throw err;
-       console.log(result); 
-      for(var i = 0; i <result.length ; i++){
-        console.log(result[i]["id"]);
-        result[i].alz="insert";
-        console.log(result[i]["id"]);
-        console.log(result[i]["alz"]);
-        row.push(result[i]); 
-      }
-      callback(row);
-    }); 
-  }
-  callback(row);
-}
-
-function updateresult(upalz,row,callback){
-  var index = upalz.length-1;
-  if(upalz[index]["insertNumber"]){
-    index--;
-  }
-  if(upalz[0]["updateId"]){
-    console.log("upIF");
-    var sql_update= "SELECT "+
-                      "* "+ 
-                    "FROM "+
-                      "game "+
-                    "where ";
-    
-    for(var i=0; i<=index;i++){          //哪幾筆資料有更新
-      if(i != index){
-        sql_update+=" id = "+upalz[i]["updateId"]+" or";
-      }
-      else{
-        sql_update +=" id = "+upalz[i]["updateId"]+" ";
-      }
+   
+        for(var i = 0; i <result.length ; i++){
+          
+          result[i].alz="insert";
+          row.push(result[i]); 
+        }
+        callback(row,upalz);
+      }); 
     }
-
-    sql_update+= " ORDER BY "+
-                    " date , time;";
-
-    con.query(sql_update, function (err, result) {
-      console.log("upQuery");
-      console.log(sql_update);
-        if (err) throw err;
-        
-      for(var i = 0; i <result.length ; i++){
-        result[i].alz="update";
-        row.push(result[i]); 
-      }
-      callback(row); 
-    });
+    else{ //沒有新增資料
+      callback(row,upalz);
+    }
+    
+  }//upalz 沒有有資料
+  else{
+    callback(row,upalz);
   }
-  callback(row);       
+  
 }
 
+//查詢更新哪幾筆資料 upalz:紀錄新增更新幾筆資料 row:存查詢到資料
+function updateresult(upalz,row,callback){
+  if(upalz.length >0){  //upalz有資料
+    var index = upalz.length-1;
+    
+    if(upalz[index]["insertNumber"]){ //upalz最後一筆是insertnumber
+      index--;
+    }
+    
+    if(upalz[0]["updateId"]){ //如果有更新資料
+      console.log("upIF");
+      
+      var sql_update= "SELECT "+
+                        "* "+ 
+                      "FROM "+
+                        "game "+
+                      "where ";
+      
+      for(var i=0; i<=index;i++){          //哪幾筆資料有更新
+        if(i != index){
+          sql_update+=" id = "+upalz[i]["updateId"]+" or";
+        }
+        else{
+          sql_update +=" id = "+upalz[i]["updateId"]+" ";
+        }
+      }
+
+      sql_update+= " ORDER BY "+
+                      " date , time;";
+
+     
+      con.query(sql_update, function (err, result) {
+        console.log("upQuery");
+        
+          if (err) throw err;
+          
+        for(var i = 0; i <result.length ; i++){
+          result[i].alz="update";
+          row.push(result[i]); 
+        }
+        callback(row); 
+      });
+    }
+    else{   // 沒有更新資料
+      callback(row); 
+    }
+  }
+  else{   //upalz 沒有有資料
+    callback(row); 
+  }
+        
+}
+
+//更新或新增 resule:抓到的資料 n:第幾筆資料 sql_insert:新增字串 count:新增幾筆資料 upalz:紀錄新增更新幾筆資料
 function update(resule,n,sql_insert,count,upalz,callback){
 
       var sql = "select "+      //查詢 判斷資料存不存在
@@ -186,8 +231,9 @@ function update(resule,n,sql_insert,count,upalz,callback){
       con.query(sql, function (err,row) {  //查詢 判斷資料存不存在
       
         if (row.length == 0){     //資料不存在，新增
-          console.log("新增資料");
+          console.log("新增資料字串");
           count++;
+          console.log("count:"+count);
           sql_insert += "('"+resule[n]["date"]+"' ,"//sql 新增資料字串
                          +"'"+resule[n]["race"]+"' , "
                          +"'"+resule[n]["host"]+"' , "
@@ -203,22 +249,13 @@ function update(resule,n,sql_insert,count,upalz,callback){
                          +"'"+resule[n]["num"]+"'"
                          +") ,";
           if(n+1 < resule.length){ //還有資料
-            update(resule,n+1,sql_insert,count,upalz,function(){
-              callback(upalz);
+            update(resule,n+1,sql_insert,count,upalz,function(upalz,count,sql_insert){
+              callback(upalz,count,sql_insert);
             });    //處理下一筆
           }
           else{
-            console.log("else新增資料");
-            sql_insert = sql_insert.substring(0,sql_insert.length-1); //刪掉,  
-            //console.log(sql_insert);
-
-            con.query(sql_insert, function (error, insertrow) {
-              if (error) throw error;
-              
-            }); //新增資料
-              console.log("新增幾筆資料"+count);
-              upalz.push({"insertNumber":count});//記錄新增幾筆資料
-            callback(upalz,count);   //資料處理完
+            
+            callback(upalz,count,sql_insert);   //資料處理完
           }   
         }        
         else{   //資料存在，更新
@@ -237,32 +274,45 @@ function update(resule,n,sql_insert,count,upalz,callback){
             con.query(sql_update, function (error, updaterow) {   //更新資料
              
               if (error) throw error;
-            });  
-          }    
-         
-          if(n+1 < resule.length){ //還有資料
-            update(resule,n+1,sql_insert,count,upalz,function(){
               
-              callback(upalz);
-            }); //處理下一筆
+              if(n+1 < resule.length){ //還有資料
+                update(resule,n+1,sql_insert,count,upalz,function(upalz,count,sql_insert){
+                  
+                  callback(upalz,count,sql_insert);
+                }); //處理下一筆
+              }
+              else{
+                 
+                callback(upalz,count,sql_insert);   //資料處理完
+              } 
+            });  
           }
           else{
-             
-            callback(upalz);   //資料處理完
-          }  
+            if(n+1 < resule.length){ //還有資料
+              update(resule,n+1,sql_insert,count,upalz,function(upalz,count,sql_insert){
+                  
+                callback(upalz,count,sql_insert);
+              }); //處理下一筆
+            }
+            else{
+                 
+              callback(upalz,count,sql_insert);   //資料處理完
+            }  
+          }
         }  
       });
   //return alz; //回傳更新資料的id & 新增幾筆資料
 }
 
+//抓網頁資料 body:要處理的網頁資訊
 function catech(body){
-  var regex = /<tbody>(.*)<\/tbody>/;
+  var regex = /<tbody>(.*)<\/tbody>/; 
   var tbody = regex.exec(body);
   
-  var resuldate = [];
-  var date = [];
-  var data = [];
-  var resule = [];
+  var resuldate = []; //存一天的賽事
+  var date = [];    //日期
+  var data = [];    //處理完的資料
+ 
   regex = /<td colspan="6"><span class="moreIcon"><\/span>(.*?) 每次竞猜选择一个选项下注/g;
  // console.log(regex);
   while(date = regex.exec(tbody[1])){
@@ -274,7 +324,7 @@ function catech(body){
   //抓一天賽事
   
   var tr = [];
-  var moreindex ;
+  var moreindex ; //紀錄more變數
   
   for(var i=0; i<resuldate.length ; i++) {
     
@@ -385,16 +435,16 @@ function catech(body){
         "defeat":resuldefeat[0],
         "defeat1":resuldefeat[1] 
       });
-    }
-    
+    } 
   } 
   return data;
 }
- 
-function Submit(search,socket){
+
+//條件查詢資料  search:查詢條件
+function Submit(search,socket){  
   console.log(search.dateStart);
-  var sql = "";
-  var row = {};
+  var sql = "";       //存查詢字串
+  var row = {};       //存查詢結果
       sql = "SELECT "+
                "* "+ 
             "FROM "+
@@ -435,17 +485,18 @@ function Submit(search,socket){
     socket.emit('search',row);
   });          
 }
- 
+
+//第一次執行 查詢今天以後的資料  
 function qry(socket){
   //計算今天日期
-  var today ="";
+  var today ="";    //今天日期
   var d = new Date();
   var day = d.getMonth()+1;
   today = d.getFullYear()+"-"+"0"+day+"-"+d.getDate();
     
   //搜尋資料
-  var sql = "";
-  var row = {};
+  var sql = "";   //存查詢字串
+  var row = {};   //存查詢結果
       sql = "SELECT "+
                "* "+ 
             "FROM "+
